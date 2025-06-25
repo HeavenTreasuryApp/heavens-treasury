@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heaven's Treasury App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <header>
+            <h1>Heaven's Treasury</h1>
+            <div class="stats">
+                <div class="stat">
+                    <span class="label">Gold:</span>
+                    <span id="gold">0</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Level:</span>
+                    <span id="level">1</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Gold/sec:</span>
+                    <span id="goldPerSec">0</span>
+                </div>
+                <div class="stat">
+                    <span class="label">XP:</span>
+                    <span id="xp">0</span>
+                </div>
+            </div>
+        </header>
+
+```
+    <main class="game-area">
+        <div class="treasure-section">
+            <div class="treasure-chest" id="treasureChest">
+                <div class="chest-glow"></div>
+                <div class="chest-body">
+                    <div class="chest-lid"></div>
+                    <div class="chest-base"></div>
+                </div>
+                <div class="click-indicator" id="clickIndicator">+1</div>
+            </div>
+            <button class="main-click-btn" id="mainClickBtn">
+                Open Treasury
+            </button>
+        </div>
+
+        <div class="upgrades-section">
+            <h2>Upgrades</h2>
+            <div class="upgrade-list">
+                <div class="upgrade-item">
+                    <div class="upgrade-info">
+                        <h3>Golden Touch</h3>
+                        <p>Increase gold per click</p>
+                        <div class="upgrade-stats">
+                            <span>Cost: <span id="clickUpgradeCost">10</span> gold</span>
+                            <span>Level: <span id="clickUpgradeLevel">0</span></span>
+                        </div>
+                    </div>
+                    <button class="upgrade-btn" id="clickUpgradeBtn">Buy</button>
+                </div>
+
+                <div class="upgrade-item">
+                    <div class="upgrade-info">
+                        <h3>Angel Recruit</h3>
+                        <p>Auto-collect 0.5 gold per second</p>
+                        <div class="upgrade-stats">
+                            <span>Cost: <span id="autoUpgradeCost">50</span> gold</span>
+                            <span>Level: <span id="autoUpgradeLevel">0</span></span>
+                        </div>
+                    </div>
+                    <button class="upgrade-btn" id="autoUpgradeBtn">Recruit</button>
+                </div>
+
+                <div class="upgrade-item">
+                    <div class="upgrade-info">
+                        <h3>Divine Blessing</h3>
+                        <p>Multiply all gold gains</p>
+                        <div class="upgrade-stats">
+                            <span>Cost: <span id="multiplierUpgradeCost">200</span> gold</span>
+                            <span>Level: <span id="multiplierUpgradeLevel">0</span></span>
+                        </div>
+                    </div>
+                    <button class="upgrade-btn" id="multiplierUpgradeBtn">Bless</button>
+                </div>
+
+                <div class="upgrade-item">
+                    <div class="upgrade-info">
+                        <h3>Sacred Temple</h3>
+                        <p>Generates 2 gold per second</p>
+                        <div class="upgrade-stats">
+                            <span>Cost: <span id="templeUpgradeCost">500</span> gold</span>
+                            <span>Level: <span id="templeUpgradeLevel">0</span></span>
+                        </div>
+                    </div>
+                    <button class="upgrade-btn" id="templeUpgradeBtn">Build</button>
+                </div>
+
+                <div class="upgrade-item">
+                    <div class="upgrade-info">
+                        <h3>Golden Altar</h3>
+                        <p>Generates 5 gold per second</p>
+                        <div class="upgrade-stats">
+                            <span>Cost: <span id="altarUpgradeCost">1500</span> gold</span>
+                            <span>Level: <span id="altarUpgradeLevel">0</span></span>
+                        </div>
+                    </div>
+                    <button class="upgrade-btn" id="altarUpgradeBtn">Consecrate</button>
+                </div>
+
+                <div class="upgrade-item">
+                    <div class="upgrade-info">
+                        <h3>Celestial Vault</h3>
+                        <p>Generates 20 gold per second</p>
+                        <div class="upgrade-stats">
+                            <span>Cost: <span id="vaultUpgradeCost">5000</span> gold</span>
+                            <span>Level: <span id="vaultUpgradeLevel">0</span></span>
+                        </div>
+                    </div>
+                    <button class="upgrade-btn" id="vaultUpgradeBtn">Manifest</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="achievements">
+            <h3>Achievements</h3>
+            <div class="achievement-list" id="achievementList"></div>
+        </div>
+    </footer>
+</div>
+
+<script>
+    // Simple beep sound function
+    function playBeep(frequency, duration) {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = frequency;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        } catch (e) {
+            // Sound not supported, continue without sound
+        }
+    }
+
+    let gameData = {
+        gold: 0,
+        level: 1,
+        xp: 0,
+        clickPower: 1,
+        autoGoldPerSecond: 0,
+        multiplier: 1,
+        totalClicks: 0,
+        totalGoldEarned: 0,
+        upgrades: {
+            click: { level: 0, cost: 10, baseCost: 10 },
+            auto: { level: 0, cost: 50, baseCost: 50 },
+            multiplier: { level: 0, cost: 200, baseCost: 200 },
+            temple: { level: 0, cost: 500, baseCost: 500 },
+            altar: { level: 0, cost: 1500, baseCost: 1500 },
+            vault: { level: 0, cost: 5000, baseCost: 5000 }
+        },
+        achievements: []
+    };
+
+    function handleMainClick() {
+        playBeep(800, 0.1); // Click sound
+        
+        let goldGained = Math.floor(gameData.clickPower * gameData.multiplier);
+        gameData.gold += goldGained;
+        gameData.totalGoldEarned += goldGained;
+        gameData.totalClicks++;
+        gameData.xp += 1;
+        
+        checkLevelUp();
+        showClickIndicator(goldGained);
+        animateChest();
+        updateDisplay();
+    }
+
+    function buyUpgrade(type) {
+        let upgrade = gameData.upgrades[type];
+        
+        if (gameData.gold >= upgrade.cost) {
+            playBeep(600, 0.2); // Purchase sound
+            
+            gameData.gold -= upgrade.cost;
+            upgrade.level++;
+            
+            if (type === 'click') {
+                gameData.clickPower += 1;
+            } else if (type === 'auto') {
+                gameData.autoGoldPerSecond += 0.5;
+            } else if (type === 'multiplier') {
+                gameData.multiplier += 0.5;
+            } else if (type === 'temple') {
+                gameData.autoGoldPerSecond += 2;
+            } else if (type === 'altar') {
+                gameData.autoGoldPerSecond += 5;
+            } else if (type === 'vault') {
+                gameData.autoGoldPerSecond += 20;
+            }
+            
+            upgrade.cost = Math.floor(upgrade.baseCost * Math.pow(1.5, upgrade.level));
+            updateDisplay();
+        }
+    }
+
+    function checkLevelUp() {
+        let xpRequired = gameData.level * 50;
+        if (gameData.xp >= xpRequired) {
+            playBeep(1000, 0.5); // Level up sound
+            gameData.level++;
+            gameData.xp = 0;
+            showLevelUpEffect();
+        }
+    }
+
+    function showClickIndicator(amount) {
+        let indicator = document.getElementById('clickIndicator');
+        if (indicator) {
+            indicator.textContent = '+' + amount;
+            indicator.classList.remove('show');
+            setTimeout(function() {
+                indicator.classList.add('show');
+            }, 10);
+        }
+    }
+
+    function animateChest() {
+        let chest = document.getElementById('treasureChest');
+        if (chest) {
+            chest.classList.add('opening');
+            setTimeout(function() {
+                chest.classList.remove('opening');
+            }, 300);
+        }
+    }
+
+    function showLevelUpEffect() {
+        let notification = document.createElement('div');
+        notification.textContent = 'Level Up! Level ' + gameData.level;
+        notification.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(45deg, #FFD700, #FFA500); color: #333; padding: 20px 40px; border-radius: 15px; font-size: 1.5rem; font-weight: bold; z-index: 1000;';
+        
+        document.body.appendChild(notification);
+        setTimeout(function() {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        }, 2000);
+    }
+
+    function updateDisplay() {
+        let goldElement = document.getElementById('gold');
+        let levelElement = document.getElementById('level');
+        let xpElement = document.getElementById('xp');
+        let goldPerSecElement = document.getElementById('goldPerSec');
+        
+        if (goldElement) goldElement.textContent = Math.floor(gameData.gold).toLocaleString();
+        if (levelElement) levelElement.textContent = gameData.level;
+        if (xpElement) xpElement.textContent = gameData.xp;
+        if (goldPerSecElement) goldPerSecElement.textContent = (gameData.autoGoldPerSecond * gameData.multiplier).toFixed(1);
+        
+        let upgradeTypes = ['click', 'auto', 'multiplier', 'temple', 'altar', 'vault'];
+        for (let i = 0; i < upgradeTypes.length; i++) {
+            let type = upgradeTypes[i];
+            let costElement = document.getElementById(type + 'UpgradeCost');
+            let levelElement = document.getElementById(type + 'UpgradeLevel');
+            let btnElement = document.getElementById(type + 'UpgradeBtn');
+            
+            if (costElement) costElement.textContent = gameData.upgrades[type].cost.toLocaleString();
+            if (levelElement) levelElement.textContent = gameData.upgrades[type].level;
+            if (btnElement) btnElement.disabled = gameData.gold < gameData.upgrades[type].cost;
+        }
+    }
+
+    function startAutoGold() {
+        setInterval(function() {
+            if (gameData.autoGoldPerSecond > 0) {
+                let goldGained = Math.floor(gameData.autoGoldPerSecond * gameData.multiplier);
+                gameData.gold += goldGained;
+                gameData.totalGoldEarned += goldGained;
+                updateDisplay();
+            }
+        }, 1000);
+    }
+
+    function initGame() {
+        document.getElementById('mainClickBtn').addEventListener('click', handleMainClick);
+        document.getElementById('treasureChest').addEventListener('click', handleMainClick);
+        
+        document.getElementById('clickUpgradeBtn').addEventListener('click', function() { buyUpgrade('click'); });
+        document.getElementById('autoUpgradeBtn').addEventListener('click', function() { buyUpgrade('auto'); });
+        document.getElementById('multiplierUpgradeBtn').addEventListener('click', function() { buyUpgrade('multiplier'); });
+        document.getElementById('templeUpgradeBtn').addEventListener('click', function() { buyUpgrade('temple'); });
+        document.getElementById('altarUpgradeBtn').addEventListener('click', function() { buyUpgrade('altar'); });
+        document.getElementById('vaultUpgradeBtn').addEventListener('click', function() { buyUpgrade('vault'); });
+        
+        startAutoGold();
+        updateDisplay();
+    }
+
+    document.addEventListener('DOMContentLoaded', initGame);
+</script>
+```
+
+</body>
+</html>
