@@ -515,54 +515,66 @@
     };
 
     let musicPlaying = false;
-    let audioContext;
-    let musicGain;
+    let audioContext = null;
+    let musicGain = null;
 
     function initAudio() {
-        if (!audioContext) {
+        try {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             musicGain = audioContext.createGain();
             musicGain.connect(audioContext.destination);
             musicGain.gain.value = 0.3;
+            return true;
+        } catch (e) {
+            console.log('Audio not supported');
+            return false;
         }
     }
 
     function playSound(frequency, duration = 0.2, type = 'sine') {
-        if (!audioContext) initAudio();
-        
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-        oscillator.type = type;
-        
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-        
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + duration);
+        try {
+            if (!audioContext && !initAudio()) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            oscillator.type = type;
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        } catch (e) {
+            console.log('Sound play failed');
+        }
     }
 
     function playBackgroundMusic() {
-        if (!audioContext) initAudio();
+        if (!audioContext && !initAudio()) return;
         
         const notes = [523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50];
         let noteIndex = 0;
         
         function playNote() {
-            if (musicPlaying) {
-                const oscillator = audioContext.createOscillator();
-                oscillator.connect(musicGain);
-                oscillator.frequency.setValueAtTime(notes[noteIndex], audioContext.currentTime);
-                oscillator.type = 'sine';
-                oscillator.start();
-                oscillator.stop(audioContext.currentTime + 0.5);
-                
-                noteIndex = (noteIndex + 1) % notes.length;
-                setTimeout(playNote, 1000);
+            if (musicPlaying && audioContext) {
+                try {
+                    const oscillator = audioContext.createOscillator();
+                    oscillator.connect(musicGain);
+                    oscillator.frequency.setValueAtTime(notes[noteIndex], audioContext.currentTime);
+                    oscillator.type = 'sine';
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.5);
+                    
+                    noteIndex = (noteIndex + 1) % notes.length;
+                    setTimeout(playNote, 1000);
+                } catch (e) {
+                    console.log('Music play failed');
+                }
             }
         }
         
@@ -570,6 +582,10 @@
     }
 
     function toggleMusic() {
+        if (!audioContext) {
+            initAudio();
+        }
+        
         musicPlaying = !musicPlaying;
         const btn = document.getElementById('musicBtn');
         btn.textContent = musicPlaying ? '🔇' : '🎵';
@@ -580,7 +596,10 @@
     }
 
     function clickTreasure() {
-        if (!audioContext) initAudio();
+        // Initialize audio on first click if needed
+        if (!audioContext) {
+            initAudio();
+        }
         
         let goldEarned = Math.floor(gameState.clickPower * gameState.prestigeBonus);
         
@@ -588,6 +607,8 @@
         if (gameState.luckChance > 0 && Math.random() < gameState.luckChance) {
             goldEarned *= 2;
             showFloatingGold(`LUCKY! +${goldEarned}`);
+        } else {
+            showFloatingGold(`+${goldEarned}`);
         }
         
         // Midas touch bonus
@@ -598,11 +619,8 @@
         gameState.gold += goldEarned;
         gameState.totalEarned += goldEarned;
         
+        // Play sound
         playSound(800 + Math.random() * 400, 0.1);
-        
-        if (!gameState.midasActive && gameState.luckChance === 0) {
-            showFloatingGold(`+${goldEarned}`);
-        }
         
         updateDisplay();
         checkAchievements();
@@ -645,7 +663,7 @@
                 if (gameState.rainActive) {
                     clickTreasure();
                 }
-            }, 100);
+            }, 500);
             
             setTimeout(() => {
                 gameState.rainActive = false;
@@ -665,14 +683,16 @@
         
         const btn = document.getElementById('treasureBtn');
         const rect = btn.getBoundingClientRect();
-        floating.style.left = (rect.left + rect.width/2) + 'px';
-        floating.style.top = rect.top + 'px';
+        floating.style.left = (rect.left + rect.width/2 - 30) + 'px';
+        floating.style.top = (rect.top - 20) + 'px';
         floating.style.position = 'fixed';
         
         document.body.appendChild(floating);
         
         setTimeout(() => {
-            floating.remove();
+            if (floating.parentNode) {
+                floating.remove();
+            }
         }, 2000);
     }
 
@@ -692,7 +712,7 @@
             } else if (type === 'luck') {
                 gameState.luckChance += 0.1;
             } else if (type === 'blessing') {
-                gameState.clickPower += gameState.clickPower * 0.5;
+                gameState.clickPower += Math.floor(gameState.clickPower * 0.5);
             }
             
             upgrade.cost = Math.floor(upgrade.baseCost * Math.pow(1.5, upgrade.count));
@@ -802,9 +822,5 @@
 
     function updateDisplay() {
         document.getElementById('goldDisplay').textContent = Math.floor(gameState.gold).toLocaleString();
-        document.getElementById('clickPowerDisplay').textContent = Math.floor(gameState.clickPower * gameState.prestigeBonus);
-        document.getElementById('autoGoldDisplay').textContent = Math.floor(gameState.autoGold * gameState.prestigeBonus);
-        document.getElementById('prestigeLevel').textContent = gameState.prestigeLevel;
-        document.getElementById('totalEarned').textContent = Math.floor(gameState.totalEarned).toLocaleString();
-        document.getElementById('prestigeBonus').textContent = Math.floor((gameState
-```s
+        document.getElementById('clickPowerDisplay').textContent = Math.floor(
+```
